@@ -1,3 +1,5 @@
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.concurrent.TimeUnit;
 import org.neo4j.driver.*;
 
@@ -42,5 +44,25 @@ public class Neo4jController {
         }
     }
 
+    public static void createDataObjectFromFile(){
+        String path = "src/TEMP";//TODO: update with actual path
+
+        try{
+            File file = new File(path);
+
+        }catch (FileNotFoundException e){
+            System.out.println("File not found");
+        }catch (Exception e){
+            System.out.println("Error reading file");
+        }
+    }
+
+    public static void createNeoDataObject(DataObject dataObject){
+        ensureConnection();
+        try (Session session = driver.session()) {
+            session.writeTransaction(tx -> tx.run("CREATE (a:occupationSalary {industryCode: $industryCode, occupationCode: $occupationCode, year: $year, period: $period, value: $value})",
+                    Values.parameters("industryCode", dataObject.getIndustryCode(), "occupationCode", dataObject.getOccupationCode(), "year", dataObject.getYear(), "period", dataObject.getPeriod(), "value", dataObject.getValue())));
+        }
+    }
 
 }
