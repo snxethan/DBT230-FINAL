@@ -7,5 +7,7 @@
 public class Main {
     public static void main(String[] args) {
         Neo4jController.connectNEO4J();
+        Neo4jController.createDataObjectFromFile();
+        Neo4jController.closeNEO4J();
     }
 }
