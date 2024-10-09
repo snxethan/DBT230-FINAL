@@ -1,5 +1,7 @@
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.util.concurrent.TimeUnit;
 import org.neo4j.driver.*;
 
@@ -49,7 +51,16 @@ public class Neo4jController {
 
         try{
             File file = new File(path);
+            if (file.exists()){
+                BufferedReader reader = new BufferedReader(new FileReader(file));
+                String line;
 
+                while ((line = reader.readLine()) != null) {
+                    String[] data = line.split(", ");
+                    DataObject object = new DataObject(data[0], data[1], data[2], data[3], data[4]);
+                    createNeoDataObject(object);
+                }
+            }
         }catch (FileNotFoundException e){
             System.out.println("File not found");
         }catch (Exception e){
