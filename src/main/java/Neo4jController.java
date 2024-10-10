@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.neo4j.driver.*;
 
@@ -15,7 +16,7 @@ import org.neo4j.driver.*;
  */
 public class Neo4jController {
     private static Driver driver; // NEO4J driver
-    private static final int BATCH_SIZE = 1000; // Define your batch size here
+    private static final int BATCH_SIZE = 900000; // Define your batch size here
 
 
     public static void connectNEO4J() {
@@ -23,7 +24,7 @@ public class Neo4jController {
         final String dbUser = "neo4j";
         final String dbPassword = "neo12345";
         Config config = Config.builder() // Configuring the connection
-                .withMaxConnectionPoolSize(50)
+                .withMaxConnectionPoolSize(10000)
                 .withConnectionAcquisitionTimeout(60, TimeUnit.SECONDS)
                 .withMaxTransactionRetryTime(15, TimeUnit.SECONDS)
                 .build();
@@ -51,7 +52,7 @@ public class Neo4jController {
     }
 
     public static void createDataObjectFromFile() {
-        String path = "C:\\NEU\\Y2\\Q1\\PRO335-SB1\\M1\\nw.data.1.AllData.txt";
+        String path = "C:\\Users\\jbrincefield\\Neumont classes\\Year 2\\Quarter 1\\Persisntence project\\nw.data.1.AllData.txt";
 
         try {
             File file = new File(path);
@@ -60,19 +61,25 @@ public class Neo4jController {
                 String line;
                 List<DataObject> batch = new ArrayList<>(); // Store objects in batch
 
+                long count = 0;
                 while ((line = reader.readLine()) != null) {
                     String[] data = line.split("\\s+");
-                    if (data.length >= 5) {
+                    if (data.length >= 4) {
+                        count++;
+                        if (data[3].matches("-")){
+                            data[3] = "0";
+                        }
                         String occupationID = data[0].substring(16, 22);
-                        DataObject object = new DataObject(data[0], Integer.parseInt(data[2]), data[3], Double.parseDouble(data[4]), occupationID);
-                        System.out.println("Adding to batch: " + object);
+                        DataObject object = new DataObject(data[0], Integer.parseInt(data[1]), data[2], Double.parseDouble(data[3]), occupationID);
                         batch.add(object);
                     }
 
                     // Process batch when it reaches the defined size
                     if (batch.size() == BATCH_SIZE) {
+                        System.out.println("Batch processed " + count);
                         createNeoDataObjects(batch); // Process batch
                         batch.clear(); // Clear batch after processing
+                        System.out.println("Batch cleared");
                     }
                 }
 
@@ -93,19 +100,29 @@ public class Neo4jController {
     }
 
     // Batch processing for Neo4j
-    public static void createNeoDataObjects (List < DataObject > dataObjects) {
+    public static void createNeoDataObjects(List<DataObject> dataObjects) {
         ensureConnection();
         try (Session session = driver.session()) {
             session.writeTransaction(tx -> {
+                List<Map<String, Object>> params = new ArrayList<>();
                 for (DataObject dataObject : dataObjects) {
-                    tx.run("CREATE (a:occupationSalary {industryCode: $industryCode, occupationCode: $occupationCode, year: $year, period: $period, value: $value})",
-                            Values.parameters("seriesID", dataObject.getSeriesID(),
-                                    "year", dataObject.getYear(),
-                                    "period", dataObject.getMonth(),
-                                    "value", dataObject.getValue()));
+                    Map<String, Object> param = Values.parameters(
+                            "seriesID", dataObject.getSeriesID(),
+                            "year", dataObject.getYear(),
+                            "period", dataObject.getMonth(),
+                            "value", dataObject.getValue(),
+                            "occupationID", dataObject.getOccupationID()
+                    ).asMap();
+                    params.add(param);
                 }
-                return null; // Return null for the transaction
+
+                tx.run("UNWIND $batch AS row " +
+                                "CREATE (a:occupationSalary {seriesID: row.seriesID, year: row.year, period: row.period, value: row.value, occupationID: row.occupationID})",
+                        Values.parameters("batch", params));
+
+                return null;
             });
         }
     }
+
 }
