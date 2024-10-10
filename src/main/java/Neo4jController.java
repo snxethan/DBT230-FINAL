@@ -63,7 +63,8 @@ public class Neo4jController {
                 while ((line = reader.readLine()) != null) {
                     String[] data = line.split("\\s+");
                     if (data.length >= 5) {
-                        DataObject object = new DataObject(data[0], data[1], data[2], data[3], data[4]);
+                        String occupationID = data[0].substring(16, 22);
+                        DataObject object = new DataObject(data[0], Integer.parseInt(data[2]), data[3], Double.parseDouble(data[4]), occupationID);
                         System.out.println("Adding to batch: " + object);
                         batch.add(object);
                     }
@@ -98,10 +99,9 @@ public class Neo4jController {
             session.writeTransaction(tx -> {
                 for (DataObject dataObject : dataObjects) {
                     tx.run("CREATE (a:occupationSalary {industryCode: $industryCode, occupationCode: $occupationCode, year: $year, period: $period, value: $value})",
-                            Values.parameters("industryCode", dataObject.getIndustryCode(),
-                                    "occupationCode", dataObject.getOccupationCode(),
+                            Values.parameters("seriesID", dataObject.getSeriesID(),
                                     "year", dataObject.getYear(),
-                                    "period", dataObject.getPeriod(),
+                                    "period", dataObject.getMonth(),
                                     "value", dataObject.getValue()));
                 }
                 return null; // Return null for the transaction

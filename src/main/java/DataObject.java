@@ -5,37 +5,38 @@
  * @packageName PACKAGE_NAME;
  */
 public class DataObject {
-    private String industryCode;
-    private String occupationCode;
-    private String year;
-    private String period;
-    private String value;
+    private String seriesID;
+    private int year;
+    private String month;
+    private double value;
+    private String occupationID;
 
-    public DataObject(String industryCode, String occupationCode, String year, String period, String value) {
-        this.industryCode = industryCode;
-        this.occupationCode = occupationCode;
+
+    public DataObject(String seriesID, int year, String month, double value,String occupationID) {
+        this.seriesID = seriesID;
         this.year = year;
-        this.period = period;
+        this.month = month;
         this.value = value;
+        this.occupationID = occupationID;
     }
 
-    public String getIndustryCode() {
-        return industryCode;
+    public String getSeriesID() {
+        return seriesID;
     }
 
-    public String getOccupationCode() {
-        return occupationCode;
-    }
-
-    public String getYear() {
+    public int getYear() {
         return year;
     }
 
-    public String getPeriod() {
-        return period;
+    public String getMonth() {
+        return month;
     }
 
-    public String getValue() {
+    public double getValue() {
         return value;
+    }
+
+    public String getOccupationID() {
+        return occupationID;
     }
 }
