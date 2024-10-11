@@ -71,7 +71,7 @@ public class Neo4jController {
 
                         else if (!data[3].contains(".")) data[3] = data[3].substring(0, data[3].length() - 2) + "." + data[3].substring(data[3].length() - 2);
 
-                        String occupationID = data[0].substring(16, 22);
+                        String occupationID = data[0].substring(17, 23);
                         DataObject object = new DataObject(data[0], Integer.parseInt(data[1]), data[2], Double.parseDouble(data[3]), occupationID);
                         batch.add(object);
                     }
