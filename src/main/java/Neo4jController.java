@@ -17,6 +17,7 @@ import org.neo4j.driver.*;
 public class Neo4jController {
     private static Driver driver; // NEO4J driver
     private static final int BATCH_SIZE = 900000; // Define your batch size here
+    //took 7 minutes and 20 seconds +- 5 seconds to process 38,861,474 records
 
 
     public static void connectNEO4J() {
