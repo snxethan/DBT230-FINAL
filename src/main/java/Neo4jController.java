@@ -3,6 +3,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -16,8 +17,9 @@ import org.neo4j.driver.*;
  */
 public class Neo4jController {
     private static Driver driver; // NEO4J driver
-    private static final int BATCH_SIZE = 900000; // Define your batch size here
-    //took 7 minutes and 20 seconds +- 5 seconds to process 38,861,474 records
+    private static final int BATCH_SIZE = 800000; // Define your batch size here
+    private static Map<String, String> occupationMap = new HashMap<>();
+    //took 8 minutes and 9 seconds +- 5 seconds to process 38,861,474 records
 
 
     public static void connectNEO4J() {
@@ -52,8 +54,29 @@ public class Neo4jController {
         }
     }
 
+    public static void loadOccupationMapping(){
+        String occupationFilePath = "C:\\Users\\jbrincefield\\Neumont classes\\Year 2\\Quarter 1\\Persisntence project\\nw.occupation"; // Adjust path
+
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(occupationFilePath));
+            String line = reader.readLine(); // Skip header line
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split("\\t"); // Assuming tab-separated file
+                if (parts.length >= 2) {
+                    String socCode = parts[0].trim();
+                    String socText = parts[1].trim();
+                    occupationMap.put(socCode, socText); // Add to map
+                }
+            }
+            reader.close();
+        } catch (Exception e) {
+            System.out.println("Error reading occupation mapping file: " + e.getMessage());
+        }
+    }
+
     public static void createDataObjectFromFile() {
         String path = "C:\\Users\\jbrincefield\\Neumont classes\\Year 2\\Quarter 1\\Persisntence project\\nw.data.1.AllData.txt";
+        loadOccupationMapping(); // Load occupation mapping
 
         try {
             File file = new File(path);
@@ -72,7 +95,10 @@ public class Neo4jController {
                         else if (!data[3].contains(".")) data[3] = data[3].substring(0, data[3].length() - 2) + "." + data[3].substring(data[3].length() - 2);
 
                         String occupationID = data[0].substring(17, 23);
-                        DataObject object = new DataObject(data[0], Integer.parseInt(data[1]), data[2], Double.parseDouble(data[3]), occupationID);
+
+                        String occupation = occupationMap.getOrDefault(occupationID, "Unknown occupation");
+
+                        DataObject object = new DataObject(data[0], Integer.parseInt(data[1]), data[2], Double.parseDouble(data[3]), occupation);
                         batch.add(object);
                     }
 
