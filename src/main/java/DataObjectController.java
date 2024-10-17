@@ -15,7 +15,7 @@ import org.neo4j.driver.*;
  * @projectName RDBL1
  * @packageName PACKAGE_NAME;
  */
-public class Neo4jController {
+public class DataObjectController {
     private static Driver driver; // NEO4J driver
     private static final int BATCH_SIZE = 800000; // Define your batch size here
     private static Map<String, String> occupationMap = new HashMap<>();
