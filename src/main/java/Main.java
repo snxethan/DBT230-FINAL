@@ -7,13 +7,14 @@
 public class Main {
     public static void main(String[] args) {
         String filePath = "path/to/your/xmlfile.xml";
-        Customer customer = XML_Parser.parseXML(filePath);
+        Customers customers = XML_Parser.parseXML(filePath);
 
-        if (customer != null) {
+        if (customers != null) {
             Neo4jUploader uploader = new Neo4jUploader("bolt://localhost:7687", "neo4j", "password");
-            uploader.uploadCustomerData(customer);
+            for (Customer customer : customers.getCustomers()) {
+                uploader.uploadCustomerData(customer);
+            }
             uploader.close();
         }
     }
 }
-

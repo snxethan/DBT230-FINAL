@@ -4,11 +4,11 @@ import javax.xml.bind.Unmarshaller;
 import java.io.File;
 
 public class XML_Parser {
-    public static Customer parseXML(String filePath) {
+    public static Customers parseXML(String filePath) {
         try {
-            JAXBContext context = JAXBContext.newInstance(Customer.class);
+            JAXBContext context = JAXBContext.newInstance(Customers.class);
             Unmarshaller unmarshaller = context.createUnmarshaller();
-            return (Customer) unmarshaller.unmarshal(new File(filePath));
+            return (Customers) unmarshaller.unmarshal(new File(filePath));
         } catch (JAXBException e) {
             e.printStackTrace();
             return null;
