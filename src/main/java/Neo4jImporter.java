@@ -6,7 +6,7 @@ import org.neo4j.driver.Session;
 import java.util.Map;
 
 public class Neo4jImporter {
-    private static final Driver driver = GraphDatabase.driver("bolt://localhost:7687", AuthTokens.basic("username", "password"));
+    private static final Driver driver = GraphDatabase.driver("bolt://localhost:7687", AuthTokens.basic("neo4j", "neo12345"));
 
     public static void importToNeo4j(Customer customer) {
         try (Session session = driver.session()) {

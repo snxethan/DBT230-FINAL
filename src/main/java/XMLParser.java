@@ -10,7 +10,7 @@ import java.io.FileNotFoundException;
 public class XMLParser {
     public static void main(String[] args) {
         try {
-            FileInputStream fileInputStream = new FileInputStream("path/to/largefile.xml");
+            FileInputStream fileInputStream = new FileInputStream("C:\\Users\\jbrincefield\\Neumont classes\\Year 2\\Quarter 1\\Persisntence project\\cumstomer.xml");
             XMLInputFactory xmlInputFactory = XMLInputFactory.newInstance();
             XMLStreamReader xmlStreamReader = xmlInputFactory.createXMLStreamReader(fileInputStream);
 
