@@ -1,10 +1,17 @@
-/**
- * @author jbrincefield
- * @createdOn 10/16/2024 at 5:59 PM
- * @projectName RDBL1
- * @packageName PACKAGE_NAME;
- */
-public class Customer{
+import javax.xml.bind.annotation.*;
+import java.util.List;
 
+@XmlRootElement(name = "Customer")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class Customer {
+    private int Age;
+    private int CustomerId;
+    private String Email;
+    private String Name;
+    @XmlElementWrapper(name = "Orders")
+    @XmlElement(name = "Order")
+    private List<Order> Orders;
 
+    // Getters and setters
 }
+

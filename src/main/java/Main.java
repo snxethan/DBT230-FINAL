@@ -6,8 +6,8 @@
  */
 public class Main {
     public static void main(String[] args) {
-        DataObjectController.connectNEO4J();
-        //DataObjectController.createDataObjectFromFile();
-        DataObjectController.closeNEO4J();
+
     }
 }
+
+
