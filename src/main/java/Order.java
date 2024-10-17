@@ -14,4 +14,36 @@ public class Order {
     private List<OrderLine> Lines;
 
     // Getters and setters
+
+    public int getCustomerId() {
+        return CustomerId;
+    }
+
+    public void setCustomerId(int customerId) {
+        CustomerId = customerId;
+    }
+
+    public int getOrderId() {
+        return OrderId;
+    }
+
+    public void setOrderId(int orderId) {
+        OrderId = orderId;
+    }
+
+    public int getTotal() {
+        return Total;
+    }
+
+    public void setTotal(int total) {
+        Total = total;
+    }
+
+    public List<OrderLine> getLines() {
+        return Lines;
+    }
+
+    public void setLines(List<OrderLine> lines) {
+        Lines = lines;
+    }
 }
