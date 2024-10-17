@@ -5,7 +5,7 @@ import javax.xml.bind.annotation.XmlElementWrapper;
 import java.util.List;
 
 @XmlAccessorType(XmlAccessType.FIELD)
-public class Order {
+class Order {
     private int CustomerId;
     private int OrderId;
     private int Total;

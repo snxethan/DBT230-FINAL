@@ -6,15 +6,13 @@
  */
 public class Main {
     public static void main(String[] args) {
-        String filePath = "path/to/your/xmlfile.xml";
-        Customers customers = XML_Parser.parseXML(filePath);
-
-        if (customers != null) {
-            Neo4jUploader uploader = new Neo4jUploader("bolt://localhost:7687", "neo4j", "password");
-            for (Customer customer : customers.getCustomers()) {
-                uploader.uploadCustomerData(customer);
-            }
-            uploader.close();
+        // Ensure the path to the large XML file is provided as an argument
+        if (args.length < 1) {
+            System.err.println("Please provide the path to the XML file as an argument.");
+            System.exit(1);
         }
+
+        // Call the XMLParser main method with the provided file path
+        XMLParser.main(args);
     }
 }
