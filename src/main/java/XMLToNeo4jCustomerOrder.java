@@ -9,12 +9,12 @@ public class XMLToNeo4jCustomerOrder {
     // Neo4j URI, username, and password
     private static final String NEO4J_URI = "bolt://localhost:7687";
     private static final String NEO4J_USER = "neo4j";
-    private static final String NEO4J_PASSWORD = "password123";
+    private static final String NEO4J_PASSWORD = System.getenv("NEO4J_PASSWORD");
 
     public static void main(String[] args) {
         // Set up StAX reader for large XML file
         try {
-            FileInputStream fis = new FileInputStream("C:\\NEU\\Y2\\Q1\\PRO335-SB1\\M3\\customers.xml");
+            FileInputStream fis = new FileInputStream(System.getenv("XML_FILE_PATH"));
             XMLInputFactory factory = XMLInputFactory.newInstance();
             XMLStreamReader reader = factory.createXMLStreamReader(fis);
 
