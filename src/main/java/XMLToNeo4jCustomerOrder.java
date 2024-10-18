@@ -3,6 +3,8 @@ import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamReader;
 import java.io.FileInputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 public class XMLToNeo4jCustomerOrder {
 
@@ -10,6 +12,14 @@ public class XMLToNeo4jCustomerOrder {
     private static final String NEO4J_URI = "bolt://localhost:7687";
     private static final String NEO4J_USER = "neo4j";
     private static final String NEO4J_PASSWORD = System.getenv("NEO4J_PASSWORD");
+
+    // Cache to store already processed nodes (reset after each batch)
+    private static Map<String, Boolean> customerCache = new HashMap<>();
+    private static Map<String, Boolean> orderCache = new HashMap<>();
+    private static Map<String, Boolean> productCache = new HashMap<>();
+
+    private static final int BATCH_SIZE = 500000;  // Increased batch size
+    private static int processedCount = 0;  // Keep track of processed records
 
     public static void main(String[] args) {
         // Set up StAX reader for large XML file
@@ -35,6 +45,9 @@ public class XMLToNeo4jCustomerOrder {
                 String price = null;
                 String lineTotal = null;
 
+                // Use transaction batching for efficient insertion
+                Transaction tx = session.beginTransaction();
+
                 while (reader.hasNext()) {
                     int event = reader.next();
 
@@ -45,9 +58,6 @@ public class XMLToNeo4jCustomerOrder {
                             // Extract Customer information
                             if ("CustomerId".equals(currentElement)) {
                                 customerId = reader.getElementText();
-                                if (customerId == null || customerId.isEmpty()) {
-                                    System.out.println("Warning: CustomerId is missing or empty!");
-                                }
                             } else if ("Name".equals(currentElement)) {
                                 name = reader.getElementText();
                             } else if ("Email".equals(currentElement)) {
@@ -56,27 +66,18 @@ public class XMLToNeo4jCustomerOrder {
                                 age = reader.getElementText();
                             }
 
-                            // Extract Order information
+                            // Extract Order information (make sure you handle nested structure correctly)
                             else if ("OrderId".equals(currentElement)) {
                                 orderId = reader.getElementText();
-                                if (orderId == null || orderId.isEmpty()) {
-                                    System.out.println("Warning: OrderId is missing or empty!");
-                                }
                             } else if ("Total".equals(currentElement) && orderId != null) {
                                 orderTotal = reader.getElementText();
                             }
 
-                            // Extract OrderLine information
+                            // Extract OrderLine information within Lines -> OrderLine
                             else if ("OrderLineId".equals(currentElement)) {
                                 orderLineId = reader.getElementText();
-                                if (orderLineId == null || orderLineId.isEmpty()) {
-                                    System.out.println("Warning: OrderLineId is missing or empty!");
-                                }
                             } else if ("ProductId".equals(currentElement)) {
                                 productId = reader.getElementText();
-                                if (productId == null || productId.isEmpty()) {
-                                    System.out.println("Warning: ProductId is missing or empty!");
-                                }
                             } else if ("Qty".equals(currentElement)) {
                                 qty = reader.getElementText();
                             } else if ("Price".equals(currentElement)) {
@@ -87,66 +88,64 @@ public class XMLToNeo4jCustomerOrder {
                             break;
 
                         case XMLStreamConstants.END_ELEMENT:
-                            // Handle the end of OrderLine
-                            if ("OrderLine".equals(reader.getLocalName())) {
-                                // Enhanced logging: Display which fields are missing
-                                if (orderLineId == null || orderLineId.isEmpty()) {
-                                    System.out.println("Skipping OrderLine: Missing OrderLineId");
-                                }
-                                if (orderId == null || orderId.isEmpty()) {
-                                    System.out.println("Skipping OrderLine: Missing OrderId");
-                                }
-                                if (productId == null || productId.isEmpty()) {
-                                    System.out.println("Skipping OrderLine: Missing ProductId");
-                                }
+                            String endElement = reader.getLocalName();
 
+                            // Handle the end of OrderLine
+                            if ("OrderLine".equals(endElement)) {
                                 if (orderLineId != null && !orderLineId.isEmpty() && orderId != null && !orderId.isEmpty() && productId != null && !productId.isEmpty()) {
-                                    // Create an OrderLine node, link it to Order, and create Product node
-                                    String orderLineQuery = "MERGE (ol:OrderLine {orderLineId: $orderLineId, price: $price, qty: $qty, total: $lineTotal}) " +
+                                    // Batch execution of queries to reduce transaction overhead
+                                    String query = "MERGE (ol:OrderLine {orderLineId: $orderLineId, price: $price, qty: $qty, total: $lineTotal}) " +
                                             "MERGE (o:Order {orderId: $orderId}) " +
                                             "MERGE (p:Product {productId: $productId}) " +
                                             "MERGE (o)-[:CONTAINS]->(ol) " +
                                             "MERGE (ol)-[:PRODUCT_OF]->(p)";
-                                    session.run(orderLineQuery, Values.parameters("orderLineId", orderLineId, "price", price, "qty", qty,
-                                            "lineTotal", lineTotal, "orderId", orderId, "productId", productId));
+                                    tx.run(query, Values.parameters("orderLineId", orderLineId, "price", price, "qty", qty, "lineTotal", lineTotal, "orderId", orderId, "productId", productId));
 
-                                } else {
-                                    System.out.println("Skipping OrderLine due to missing OrderLineId, OrderId, or ProductId.");
+                                    processedCount++;
                                 }
 
-                                // Reset for the next order line
+                                // Reset variables for the next order line
                                 orderLineId = null;
                                 productId = null;
                                 qty = null;
                                 price = null;
                                 lineTotal = null;
+
+                                // Commit the transaction every BATCH_SIZE entries
+                                if (processedCount % BATCH_SIZE == 0) {
+                                    tx.commit(); // Commit the transaction
+                                    System.out.println("Committed " + processedCount + " records.");
+
+                                    // Clean up after batch
+                                    customerCache.clear();
+                                    orderCache.clear();
+                                    productCache.clear();
+                                    System.gc();  // Force garbage collection
+
+                                    tx = session.beginTransaction(); // Start a new transaction
+                                }
                             }
 
                             // Handle the end of Order
-                            if ("Order".equals(reader.getLocalName())) {
-                                if (orderId != null && !orderId.isEmpty() && customerId != null && !customerId.isEmpty()) {
-                                    // Create an Order node and link it to Customer
-                                    String orderQuery = "MERGE (o:Order {orderId: $orderId, total: $orderTotal}) " +
+                            if ("Order".equals(endElement)) {
+                                if (orderId != null && !orderId.isEmpty()) {
+                                    String query = "MERGE (o:Order {orderId: $orderId, total: $orderTotal}) " +
                                             "MERGE (c:Customer {customerId: $customerId}) " +
                                             "MERGE (c)-[:PLACED]->(o)";
-                                    session.run(orderQuery, Values.parameters("orderId", orderId, "orderTotal", orderTotal, "customerId", customerId));
-                                } else {
-                                    System.out.println("Skipping Order due to missing OrderId or CustomerId.");
+                                    tx.run(query, Values.parameters("orderId", orderId, "orderTotal", orderTotal, "customerId", customerId));
                                 }
 
-                                // Reset for the next order
                                 orderId = null;
                                 orderTotal = null;
                             }
 
                             // Handle the end of Customer
-                            if ("Customer".equals(reader.getLocalName())) {
-                                if (customerId != null && !customerId.isEmpty()) {
-                                    // Create the Customer node
-                                    String customerQuery = "MERGE (c:Customer {customerId: $customerId, name: $name, email: $email, age: $age})";
-                                    session.run(customerQuery, Values.parameters("customerId", customerId, "name", name, "email", email, "age", age));
-                                } else {
-                                    System.out.println("Skipping Customer due to missing CustomerId.");
+                            if ("Customer".equals(endElement)) {
+                                if (customerId != null && !customerId.isEmpty() && !customerCache.containsKey(customerId)) {
+                                    // Create the Customer node if it doesn't exist in the cache
+                                    String query = "MERGE (c:Customer {customerId: $customerId, name: $name, email: $email, age: $age})";
+                                    tx.run(query, Values.parameters("customerId", customerId, "name", name, "email", email, "age", age));
+                                    customerCache.put(customerId, true);
                                 }
 
                                 // Reset customer variables after processing
@@ -159,7 +158,15 @@ public class XMLToNeo4jCustomerOrder {
                     }
                 }
 
-                System.out.println("Data successfully loaded into Neo4j!");
+                // Final commit after the last batch
+                tx.commit();
+                System.out.println("Final commit: Total processed records: " + processedCount);
+
+                // Final memory cleanup
+                customerCache.clear();
+                orderCache.clear();
+                productCache.clear();
+                System.gc();  // Final garbage collection
 
             } catch (Exception e) {
                 e.printStackTrace();
