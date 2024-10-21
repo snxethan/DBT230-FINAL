@@ -15,7 +15,7 @@ public class XMLToNeo4jCustomerOrder {
     private static Set<String> orderCache = new HashSet<>();
     private static Set<String> productCache = new HashSet<>();
 
-    private static final int BATCH_SIZE = 1000;
+    private static final int BATCH_SIZE = 5000;
     private static int processedCount = 0;
 
     private static String currentOrderId = null;
@@ -118,6 +118,18 @@ public class XMLToNeo4jCustomerOrder {
                                 age = null;
                             }
 
+                            // Handle the end of Order
+                            if ("Order".equals(endElement)) {
+                                if (currentOrderId != null) {
+                                    Map<String, Object> orderMap = new HashMap<>();
+                                    orderMap.put("orderId", currentOrderId);
+                                    orderMap.put("orderTotal", orderTotal); // You should ensure you capture orderTotal from XML
+                                    orderBatch.add(orderMap);
+                                    processedCount++;
+                                }
+                                currentOrderId = null; // Reset for the next order
+                            }
+
                             // Handle the end of OrderLine
                             if ("OrderLine".equals(endElement)) {
                                 if (orderLineId != null && !orderLineId.isEmpty() && currentOrderId != null && productId != null && !productId.isEmpty()) {
@@ -202,4 +214,5 @@ public class XMLToNeo4jCustomerOrder {
             orderLineBatch.clear();
         }
     }
+
 }
