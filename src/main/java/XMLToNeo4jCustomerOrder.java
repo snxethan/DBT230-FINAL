@@ -7,24 +7,25 @@ import java.util.*;
 
 public class XMLToNeo4jCustomerOrder {
 
-    //neo4j connection details
+    // Neo4j connection details
     private static final String NEO4J_URI = "bolt://localhost:7687";
     private static final String NEO4J_USER = "neo4j";
     private static final String NEO4J_PASSWORD = System.getenv("NEO4J_PASSWORD");
 
-    //hash sets for caching
+    // Caches for batching
     private static Set<String> customerCache = new HashSet<>();
     private static Set<String> orderCache = new HashSet<>();
     private static Set<String> productCache = new HashSet<>();
 
-    //batch size vars
-    private static final int BATCH_SIZE = 5000;
-    private static int processedCount = 0;
+    // Batch size and processed count
+    private static final int BATCH_SIZE = 1000;
+    private static int totalProcessedCount = 0; // Tracks total processed records
+    private static int currentBatchCount = 0; // Tracks current batch processed records
 
-    //the current order id used for each order
+    // Current order ID used for processing
     private static String currentOrderId = null;
 
-    //batches for storing data
+    // Batches for storing customer, order, and order line data
     private static List<Map<String, Object>> customerBatch = new ArrayList<>();
     private static List<Map<String, Object>> orderBatch = new ArrayList<>();
     private static List<Map<String, Object>> orderLineBatch = new ArrayList<>();
@@ -34,6 +35,7 @@ public class XMLToNeo4jCustomerOrder {
 
     public static void main(String[] args) {
         try {
+            System.out.println("Starting XML to Neo4j import...");
             FileInputStream fis = new FileInputStream(System.getenv("XML_FILE_PATH"));
             XMLInputFactory factory = XMLInputFactory.newInstance();
             XMLStreamReader reader = factory.createXMLStreamReader(fis);
@@ -41,130 +43,90 @@ public class XMLToNeo4jCustomerOrder {
             try (Driver driver = GraphDatabase.driver(NEO4J_URI, AuthTokens.basic(NEO4J_USER, NEO4J_PASSWORD));
                  Session session = driver.session()) {
 
-                // Initialize variables for reading XML
-                String currentElement = null;
-                String customerId = null;
-                String name = null;
-                String email = null;
-                String age = null;
-                String orderTotal = null;
-                String orderLineId = null;
-                String productId = null;
-                String qty = null;
-                String price = null;
-                String lineTotal = null;
-
                 // Start transaction
                 Transaction tx = session.beginTransaction();
 
-                // Read XML data
+                String currentElement = null;
+                String customerId = null, name = null, email = null, age = null;
+                String orderTotal = null, orderLineId = null, productId = null, qty = null, price = null, lineTotal = null;
+
                 while (reader.hasNext()) {
                     int event = reader.next();
 
-                    // Process XML elements
                     switch (event) {
-                        case XMLStreamConstants.START_ELEMENT: // Start of an element
+                        case XMLStreamConstants.START_ELEMENT:
                             currentElement = reader.getLocalName();
 
-                            // Extract Customer information
-                            if ("CustomerId".equals(currentElement)) { // CustomerId
-                                customerId = reader.getElementText(); // Read CustomerId
-                                System.out.println("CustomerId: " + customerId);
-                            } else if ("Name".equals(currentElement)) { // Name
-                                name = reader.getElementText(); // Read Name
-                                System.out.println("Name: " + name);
-                            } else if ("Email".equals(currentElement)) { // Email
-                                email = reader.getElementText(); // Read Email
-                                System.out.println("Email: " + email);
-                            } else if ("Age".equals(currentElement)) { // Age
-                                age = reader.getElementText(); // Read Age
-                                System.out.println("Age: " + age);
+                            // Process Customer
+                            if ("CustomerId".equals(currentElement)) {
+                                customerId = reader.getElementText();
+                            } else if ("Name".equals(currentElement)) {
+                                name = reader.getElementText();
+                            } else if ("Email".equals(currentElement)) {
+                                email = reader.getElementText();
+                            } else if ("Age".equals(currentElement)) {
+                                age = reader.getElementText();
                             }
 
-                            // Extract Order information
+                            // Process Order
                             else if ("OrderId".equals(currentElement)) {
-                                currentOrderId = reader.getElementText();  // Store active orderId
-                                System.out.println("OrderId: " + currentOrderId);
-
-                                // Now process any deferred order lines after we have the OrderId
+                                currentOrderId = reader.getElementText();
                                 if (currentOrderId != null && !currentOrderId.isEmpty()) {
                                     for (Map<String, Object> orderLine : deferredOrderLines) {
-                                        orderLine.put("orderId", currentOrderId);  // Attach the correct OrderId to each order line
+                                        orderLine.put("orderId", currentOrderId);
                                         orderLineBatch.add(orderLine);
                                     }
-                                    deferredOrderLines.clear();  // Clear the deferred list after processing
+                                    deferredOrderLines.clear();
                                 }
                             }
 
-                            // Extract OrderLine information and temporarily store it until OrderId is available
-                            else if ("OrderLineId".equals(currentElement)) { // OrderLineId
-                                orderLineId = reader.getElementText(); // Read OrderLineId
-                                System.out.println("OrderLineId: " + orderLineId);
-                            } else if ("ProductId".equals(currentElement)) { // ProductId
-                                productId = reader.getElementText(); // Read ProductId
-                                System.out.println("ProductId: " + productId);
-                            } else if ("Qty".equals(currentElement)) { // Qty
-                                qty = reader.getElementText(); // Read Qty
-                                System.out.println("Qty: " + qty);
-                            } else if ("Price".equals(currentElement)) { // Price
-                                price = reader.getElementText(); // Read Price
-                                System.out.println("Price: " + price);
-                            } else if ("Total".equals(currentElement) && orderLineId != null) { // Total
-                                lineTotal = reader.getElementText(); // Read Total
-                                System.out.println("Total: " + lineTotal);
+                            // Process OrderLine
+                            else if ("OrderLineId".equals(currentElement)) {
+                                orderLineId = reader.getElementText();
+                            } else if ("ProductId".equals(currentElement)) {
+                                productId = reader.getElementText();
+                            } else if ("Qty".equals(currentElement)) {
+                                qty = reader.getElementText();
+                            } else if ("Price".equals(currentElement)) {
+                                price = reader.getElementText();
+                            } else if ("Total".equals(currentElement) && orderLineId != null) {
+                                lineTotal = reader.getElementText();
                             }
                             break;
 
-                        case XMLStreamConstants.END_ELEMENT: // End of an element
-                            String endElement = reader.getLocalName(); // Get the name of the end element
+                        case XMLStreamConstants.END_ELEMENT:
+                            String endElement = reader.getLocalName();
 
-                            // Handle the end of Customer
-                            if ("Customer".equals(endElement)) { // End of Customer
-                                if (customerId != null && !customerId.isEmpty()) { // Check for valid customerId
-                                    Map<String, Object> customerMap = new HashMap<>(); // Create a new customer map
-                                    customerMap.put("customerId", customerId); // Add customerId to the map
-                                    customerMap.put("name", name); // Add name to the map
-                                    customerMap.put("email", email); // Add email to the map
-                                    customerMap.put("age", age); // Add age to the map
-                                    customerBatch.add(customerMap); // Add the customer map to the batch
-
-                                    processedCount++; // Increment processed count
-                                } else {
-                                    System.out.println("Skipping customer with null or empty customerId.");
+                            // End Customer
+                            if ("Customer".equals(endElement)) {
+                                if (customerId != null && !customerId.isEmpty()) {
+                                    Map<String, Object> customerMap = new HashMap<>();
+                                    customerMap.put("customerId", customerId);
+                                    customerMap.put("name", name);
+                                    customerMap.put("email", email);
+                                    customerMap.put("age", age);
+                                    customerBatch.add(customerMap);
+                                    currentBatchCount++;
                                 }
-
-                                // Reset Customer fields
-                                customerId = null;
-                                name = null;
-                                email = null;
-                                age = null;
+                                customerId = null; name = null; email = null; age = null;
                             }
 
-                            // Handle the end of Order
+                            // End Order
                             if ("Order".equals(endElement)) {
-                                if (currentOrderId != null && !currentOrderId.isEmpty()) { // Check for valid orderId
-                                    Map<String, Object> orderMap = new HashMap<>(); // Create a new order map
-                                    orderMap.put("orderId", currentOrderId); // Add orderId to the map
-                                    orderMap.put("orderTotal", orderTotal); // Add orderTotal to the map
-                                    orderMap.put("customerId", customerId);  // Link to customer
-                                    orderBatch.add(orderMap); // Add the order map to the batch
-
-                                    processedCount++;
-                                } else {
-                                    System.out.println("Skipping order with null or empty orderId.");
+                                if (currentOrderId != null && !currentOrderId.isEmpty()) {
+                                    Map<String, Object> orderMap = new HashMap<>();
+                                    orderMap.put("orderId", currentOrderId);
+                                    orderMap.put("orderTotal", orderTotal);
+                                    orderMap.put("customerId", customerId);
+                                    orderBatch.add(orderMap);
+                                    currentBatchCount++;
                                 }
-
-                                // Reset Order fields
-                                currentOrderId = null;
-                                orderTotal = null;
+                                currentOrderId = null; orderTotal = null;
                             }
 
-                            // Handle the end of OrderLine
+                            // End OrderLine
                             if ("OrderLine".equals(endElement)) {
-                                if (orderLineId != null && !orderLineId.isEmpty() &&
-                                        productId != null && !productId.isEmpty()) {
-
-                                    // Prepare the order line data for batch insertion, defer processing until OrderId is available
+                                if (orderLineId != null && !orderLineId.isEmpty() && productId != null && !productId.isEmpty()) {
                                     Map<String, Object> orderLineMap = new HashMap<>();
                                     orderLineMap.put("orderLineId", orderLineId);
                                     orderLineMap.put("price", price);
@@ -172,83 +134,75 @@ public class XMLToNeo4jCustomerOrder {
                                     orderLineMap.put("lineTotal", lineTotal);
                                     orderLineMap.put("productId", productId);
 
-                                    // If OrderId is already available, process the order line immediately
                                     if (currentOrderId != null && !currentOrderId.isEmpty()) {
                                         orderLineMap.put("orderId", currentOrderId);
                                         orderLineBatch.add(orderLineMap);
                                     } else {
-                                        // Otherwise, defer processing until the OrderId is read
                                         deferredOrderLines.add(orderLineMap);
                                     }
-
-                                    processedCount++;
-                                } else {
-                                    System.out.println("Skipping order line due to missing data: " +
-                                            "OrderLineId=" + orderLineId + ", ProductId=" + productId);
+                                    currentBatchCount++;
                                 }
-
-                                // Reset OrderLine fields after processing
-                                orderLineId = null;
-                                productId = null;
-                                qty = null;
-                                price = null;
-                                lineTotal = null;
+                                orderLineId = null; productId = null; qty = null; price = null; lineTotal = null;
                             }
 
-                            // Commit batch if the batch size is reached
-                            if (processedCount % BATCH_SIZE == 0) { //this is where we commit the batch, mod checks if we have reached the batch size
-                                executeBatches(tx);  // Execute the batch insertions
-                                tx.commit(); // Commit the transaction
-                                System.out.println("Committed " + processedCount + " records."); // Log the commit
-
-                                // Clear caches and reset transaction
-                                customerCache.clear();
-                                orderCache.clear();
-                                productCache.clear();
-                                System.gc();
-
-                                tx = session.beginTransaction(); // Start a new transaction
+                            // Commit the batch after reaching batch size
+                            if (currentBatchCount >= BATCH_SIZE) {
+                                executeBatches(tx);  // Process the batch insert
+                                tx.commit();  // Commit the transaction
+                                totalProcessedCount += currentBatchCount;  // Update the total processed count
+                                System.out.println("Committed " + totalProcessedCount + " records.");
+                                resetBatches();  // Clear caches and reset transaction state
+                                currentBatchCount = 0;  // Reset the current batch count
+                                tx = session.beginTransaction();  // Start a new transaction for the next batch
                             }
+                            break;
                     }
                 }
 
-                // Final commit after processing all data
-                executeBatches(tx); // Execute any remaining batches
-                tx.commit(); // Commit the final transaction
+                // Final commit for any remaining records
+                if (!customerBatch.isEmpty() || !orderBatch.isEmpty() || !orderLineBatch.isEmpty()) {
+                    executeBatches(tx);
+                    tx.commit();
+                    totalProcessedCount += currentBatchCount;  // Update total processed count with the remaining records
+                    System.out.println("Final commit of remaining records. Total processed: " + totalProcessedCount);
+                }
             } catch (Exception e) {
-                e.printStackTrace(); // Print any exceptions
+                e.printStackTrace();
             }
-
-            reader.close(); // Close the XML reader
-
+            reader.close();
         } catch (Exception e) {
-            e.printStackTrace(); // Print any exceptions
+            e.printStackTrace();
         }
     }
 
+    // Method to reset the batch variables
+    private static void resetBatches() {
+        customerBatch.clear();
+        orderBatch.clear();
+        orderLineBatch.clear();
+        deferredOrderLines.clear();
+        System.gc();
+    }
+
+    // Method to execute batched transactions
     private static void executeBatches(Transaction tx) {
         if (!customerBatch.isEmpty()) {
-            // Insert customers
             tx.run("UNWIND $batchData as row " +
                             "MERGE (c:Customer {customerId: row.customerId}) " +
                             "SET c.name = row.name, c.email = row.email, c.age = row.age",
                     Collections.singletonMap("batchData", customerBatch));
-            customerBatch.clear();
         }
 
         if (!orderBatch.isEmpty()) {
-            // Insert orders
             tx.run("UNWIND $batchData as row " +
                             "MERGE (o:Order {orderId: row.orderId}) " +
                             "SET o.total = row.orderTotal " +
                             "MERGE (c:Customer {customerId: row.customerId}) " +
                             "MERGE (c)-[:PLACED]->(o)",
                     Collections.singletonMap("batchData", orderBatch));
-            orderBatch.clear();
         }
 
         if (!orderLineBatch.isEmpty()) {
-            // Insert order lines
             tx.run("UNWIND $batchData as row " +
                             "MERGE (ol:OrderLine {orderLineId: row.orderLineId}) " +
                             "SET ol.price = row.price, ol.qty = row.qty, ol.total = row.lineTotal " +
@@ -257,7 +211,6 @@ public class XMLToNeo4jCustomerOrder {
                             "MERGE (o)-[:CONTAINS]->(ol) " +
                             "MERGE (ol)-[:PRODUCT_OF]->(p)",
                     Collections.singletonMap("batchData", orderLineBatch));
-            orderLineBatch.clear();
         }
     }
 }
