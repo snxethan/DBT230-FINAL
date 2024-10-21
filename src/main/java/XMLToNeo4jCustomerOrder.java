@@ -18,7 +18,7 @@ public class XMLToNeo4jCustomerOrder {
     private static Set<String> productCache = new HashSet<>();
 
     // Batch size and processed count
-    private static final int BATCH_SIZE = 1000;
+    private static final int BATCH_SIZE = 5000;
     private static int totalProcessedCount = 0; // Tracks total processed records
     private static int currentBatchCount = 0; // Tracks current batch processed records
 
