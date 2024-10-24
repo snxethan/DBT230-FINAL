@@ -6,6 +6,6 @@
  */
 public class Main {
     public static void main(String[] args) {
-        XMLToNeo4jCustomerOrder.main(args);
+        ChunkXML.main(args);
     }
 }
