@@ -18,7 +18,7 @@ public class XMLToNeo4jCustomerOrder {
     private static Set<String> productCache = new HashSet<>();
 
     // Batch size and processed count
-    private static final int BATCH_SIZE = 5000;
+    private static final int BATCH_SIZE = 15000;
     private static int totalProcessedCount = 0; // Tracks total processed records
     private static int currentBatchCount = 0; // Tracks current batch processed records
 
@@ -33,6 +33,10 @@ public class XMLToNeo4jCustomerOrder {
     // Temporary storage for order lines until OrderId is available
     private static List<Map<String, Object>> deferredOrderLines = new ArrayList<>();
 
+    // Class-level session and transaction variables
+    private static Session session;
+    private static Transaction tx;
+
     public static void main(String[] args) {
         try {
             System.out.println("Starting XML to Neo4j import...");
@@ -40,11 +44,9 @@ public class XMLToNeo4jCustomerOrder {
             XMLInputFactory factory = XMLInputFactory.newInstance();
             XMLStreamReader reader = factory.createXMLStreamReader(fis);
 
-            try (Driver driver = GraphDatabase.driver(NEO4J_URI, AuthTokens.basic(NEO4J_USER, NEO4J_PASSWORD));
-                 Session session = driver.session()) {
-
-                // Start transaction
-                Transaction tx = session.beginTransaction();
+            try (Driver driver = GraphDatabase.driver(NEO4J_URI, AuthTokens.basic(NEO4J_USER, NEO4J_PASSWORD))) {
+                session = driver.session();  // Initialize session
+                tx = session.beginTransaction();  // Start transaction
 
                 String currentElement = null;
                 String customerId = null, name = null, email = null, age = null;
@@ -146,22 +148,14 @@ public class XMLToNeo4jCustomerOrder {
                             }
 
                             // Commit the batch after reaching batch size
-                            if (currentBatchCount >= BATCH_SIZE) {
-                                executeBatches(tx);  // Process the batch insert
-                                tx.commit();  // Commit the transaction
-                                totalProcessedCount += currentBatchCount;  // Update the total processed count
-                                System.out.println("Committed " + totalProcessedCount + " records.");
-                                resetBatches();  // Clear caches and reset transaction state
-                                currentBatchCount = 0;  // Reset the current batch count
-                                tx = session.beginTransaction();  // Start a new transaction for the next batch
-                            }
+                            checkBatchLimitAndCommit();  // Now without parameters
                             break;
                     }
                 }
 
                 // Final commit for any remaining records
                 if (!customerBatch.isEmpty() || !orderBatch.isEmpty() || !orderLineBatch.isEmpty()) {
-                    executeBatches(tx);
+                    executeBatches();
                     tx.commit();
                     totalProcessedCount += currentBatchCount;  // Update total processed count with the remaining records
                     System.out.println("Final commit of remaining records. Total processed: " + totalProcessedCount);
@@ -185,7 +179,7 @@ public class XMLToNeo4jCustomerOrder {
     }
 
     // Method to execute batched transactions
-    private static void executeBatches(Transaction tx) {
+    private static void executeBatches() {
         if (!customerBatch.isEmpty()) {
             tx.run("UNWIND $batchData as row " +
                             "MERGE (c:Customer {customerId: row.customerId}) " +
@@ -211,6 +205,19 @@ public class XMLToNeo4jCustomerOrder {
                             "MERGE (o)-[:CONTAINS]->(ol) " +
                             "MERGE (ol)-[:PRODUCT_OF]->(p)",
                     Collections.singletonMap("batchData", orderLineBatch));
+        }
+    }
+
+    // Commit batches for all types if any of them reaches the batch size
+    private static void checkBatchLimitAndCommit() {
+        if (currentBatchCount >= BATCH_SIZE) {
+            executeBatches();
+            tx.commit();
+            totalProcessedCount += currentBatchCount;
+            System.out.println("Committed " + totalProcessedCount + " records.");
+            resetBatches();  // Clear caches and reset transaction state
+            currentBatchCount = 0;  // Reset batch counter
+            tx = session.beginTransaction();  // Start a new transaction for the next batch
         }
     }
 }
