@@ -114,10 +114,8 @@ The application is optimized for large-scale data processing:
 - **Performance Issues**: Adjust batch size and connection pool settings
 - **Memory Issues**: Increase JVM heap size for large datasets
 
-## License
+## Author(s)
 
-This project is part of the DBT230 course curriculum.
-
----
-
-*For questions or issues, please contact the development team.*
+- [**Ethan Townsend (snxethan)**](www.ethantownsend.dev)
+- Victor Keeler
+- Jacob Brincefield
