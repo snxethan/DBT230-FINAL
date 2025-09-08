@@ -6,13 +6,6 @@ A Java-based application that demonstrates Neo4j database connectivity and data 
 
 This project (RDBL1 - Relational Database Lab 1) is designed to work with Neo4j graph database to process and analyze employment data. The application connects to a Neo4j database, reads data from files, and creates data objects for further analysis.
 
-## Authors
-
-- **jbrincefield** - Primary developer
-- **etownsend** - Team member
-- **vkeeler** - Team member  
-- **esmith** - Team member
-
 *Created: October 2024*
 
 ## Features
@@ -117,5 +110,7 @@ The application is optimized for large-scale data processing:
 ## Author(s)
 
 - [**Ethan Townsend (snxethan)**](www.ethantownsend.dev)
+- Ethan Smith
 - Victor Keeler
 - Jacob Brincefield
+
