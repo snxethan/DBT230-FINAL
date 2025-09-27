@@ -109,7 +109,7 @@ The application is optimized for large-scale data processing:
 
 ## Author(s)
 
-- [**Ethan Townsend (snxethan)**](www.ethantownsend.dev)
+- [**Ethan Townsend (snxethan)**](https://www.ethantownsend.dev)
 - Ethan Smith
 - Victor Keeler
 - Jacob Brincefield
